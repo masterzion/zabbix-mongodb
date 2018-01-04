@@ -1,9 +1,11 @@
 #!/usr/bin/env python
-
 # Date: 03/01/2017
 # Author: Long Chen
 # Description: A script to get MongoDB metrics
 # Requires: MongoClient in python
+
+# Last update:          Jairo Moreno
+# Date:                 04/01/2018
 
 from pymongo import MongoClient
 from calendar import timegm
@@ -14,9 +16,11 @@ import json
 class MongoDB(object):
     def __init__(self):
         self.mongo_host = "127.0.0.1"
-        self.mongo_port = 27017
-        self.mongo_db = ["admin", ]
-        self.mongo_user = None
+        self.mongo_port = 26050
+        self.mongo_authdb = "admin"
+        self.mongo_db = ["admin","test"]
+        self.mongo_user = ""
+        self.mongo_pass = ""
         self.mongo_password = None
         self.__conn = None
         self.__dbnames = None
@@ -26,7 +30,9 @@ class MongoDB(object):
     def connect(self):
         if self.__conn is None:
             try:
-                self.__conn = MongoClient(host=self.mongo_host, port=self.mongo_port)
+#                self.__conn = MongoClient(host=self.mongo_host, port=self.mongo_port)
+                 uri = "mongodb://"+self.mongo_user+":"+self.mongo_pass+"@"+self.mongo_host+":"+str(self.mongo_port)+"/default_db?authSource="+self.mongo_authdb
+                 self.__conn = MongoClient(uri)
             except Exception as e:
                 print 'Error in MongoDB connection: %s' % str(e)
 
@@ -84,25 +90,33 @@ class MongoDB(object):
         if self.mongo_user and self.mongo_password:
             db.authenticate(self.mongo_user, self.mongo_password)
 
-        dbl = db.local
+        dbl = db.admin
         coll = dbl['oplog.rs']
 
         op_first = (coll.find().sort('$natural', 1).limit(1))
-
         while op_first.alive:
-            op_fst = (op_first.next())['ts'].time
-
+           if op_first.count() > 0:
+              op_fst = (op_first.next())['ts'].time
+           else:
+             op_fst = 0
+             break
         op_last = (coll.find().sort('$natural', -1).limit(1))
 
         while op_last.alive:
-            op_last_st = op_last[0]['ts']
-            op_lst = (op_last.next())['ts'].time
+            if op_last.count() > 0:
+                op_last_st = op_last[0]['ts']
+                op_lst = (op_last.next())['ts'].time
+                oplog = int(((str(op_last_st).split('('))[1].split(','))[0])
+            else:
+                op_lst = 0
+                oplog = 0
+                break
 
         status = round(float(op_lst - op_fst), 1)
         self.addMetrics('mongodb.oplog', status)
 
         currentTime = timegm(gmtime())
-        oplog = int(((str(op_last_st).split('('))[1].split(','))[0])
+
         self.addMetrics('mongodb.oplog-sync', (currentTime - oplog))
 
 
@@ -115,7 +129,8 @@ class MongoDB(object):
         host_name = socket.gethostname()
 
         fsync_locked = int(db.is_locked)
-
+        priority = "none"
+        hidden = "none"
         config = db.admin.command("replSetGetConfig", 1)
         for i in range(0, len(config['config']['members'])):
             if host_name in config['config']['members'][i]['host']:
