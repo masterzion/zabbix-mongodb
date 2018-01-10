@@ -90,33 +90,25 @@ class MongoDB(object):
         if self.mongo_user and self.mongo_password:
             db.authenticate(self.mongo_user, self.mongo_password)
 
-        dbl = db.admin
+        dbl = db.local
         coll = dbl['oplog.rs']
 
         op_first = (coll.find().sort('$natural', 1).limit(1))
+
         while op_first.alive:
-           if op_first.count() > 0:
-              op_fst = (op_first.next())['ts'].time
-           else:
-             op_fst = 0
-             break
+            op_fst = (op_first.next())['ts'].time
+
         op_last = (coll.find().sort('$natural', -1).limit(1))
 
         while op_last.alive:
-            if op_last.count() > 0:
-                op_last_st = op_last[0]['ts']
-                op_lst = (op_last.next())['ts'].time
-                oplog = int(((str(op_last_st).split('('))[1].split(','))[0])
-            else:
-                op_lst = 0
-                oplog = 0
-                break
+            op_last_st = op_last[0]['ts']
+            op_lst = (op_last.next())['ts'].time
 
         status = round(float(op_lst - op_fst), 1)
         self.addMetrics('mongodb.oplog', status)
 
         currentTime = timegm(gmtime())
-
+        oplog = int(((str(op_last_st).split('('))[1].split(','))[0])
         self.addMetrics('mongodb.oplog-sync', (currentTime - oplog))
 
 
