@@ -8,7 +8,7 @@
 # Date:                 04/01/2018
 
 get_MongoDB_metrics(){
-python /usr/local/bin/zabbix-mongodb.py 
+python /usr/local/bin/zabbix-mongodb.py
 }
 
 # Send the results to zabbix server by using zabbix sender
