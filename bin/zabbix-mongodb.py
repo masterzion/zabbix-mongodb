@@ -15,7 +15,7 @@ import json
 
 class MongoDB(object):
     def __init__(self):
-        self.mongo_host = "127.0.0.1"
+        self.mongo_host = socket.gethostname() # must be the host name, not IP
         self.mongo_port = 26050
         self.mongo_authdb = "admin"
         self.mongo_db = ["admin","test"]
@@ -121,8 +121,7 @@ class MongoDB(object):
         host_name = socket.gethostname()
 
         fsync_locked = int(db.is_locked)
-        priority = "none"
-        hidden = "none"
+
         config = db.admin.command("replSetGetConfig", 1)
         for i in range(0, len(config['config']['members'])):
             if host_name in config['config']['members'][i]['host']:
